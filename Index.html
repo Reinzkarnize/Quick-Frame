@@ -1,282 +1,295 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Download, Trash2, Sliders, Palette, Square, Layout, RefreshCcw } from 'lucide-react';
-
-const App = () => {
-  const [image, setImage] = useState(null);
-  const [borderWidth, setBorderWidth] = useState(20);
-  const [borderColor, setBorderColor] = useState('#ff4d00'); // Shopee Orange
-  const [borderRadius, setBorderRadius] = useState(0);
-  const [padding, setPadding] = useState(0);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  const [activeTab, setActiveTab] = useState('border');
-
-  const canvasRef = useRef(null);
-  const fileInputRef = useRef(null);
-
-  const colors = [
-    '#ff4d00', // Shopee Orange
-    '#ee4d2d', // Shopee Red-Orange
-    '#000000', // Black
-    '#ffffff', // White
-    '#f6ff00', // Neon Yellow
-    '#00ff08', // Neon Green
-    '#0095ff', // Blue
-  ];
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          setImage(img);
-          // Standardize to 1:1 for Shopee if possible or keep original
-          setCanvasSize({ width: img.width, height: img.height });
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const drawCanvas = () => {
-    if (!image || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    // Set canvas to 1:1 Aspect Ratio (Recommended for Shopee)
-    const size = Math.max(image.width, image.height);
-    canvas.width = size;
-    canvas.height = size;
-
-    // 1. Draw Background (Border Color)
-    ctx.fillStyle = borderColor;
-    ctx.fillRect(0, 0, size, size);
-
-    // 2. Calculate Inner Image Area
-    const innerSize = size - (borderWidth * 2);
-    const x = (size - innerSize) / 2;
-    const y = (size - innerSize) / 2;
-
-    // 3. Draw Inner Content (Handle Border Radius)
-    ctx.save();
-    
-    // Create Rounded Path
-    const r = (borderRadius / 100) * (innerSize / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + innerSize, y, x + innerSize, y + innerSize, r);
-    ctx.arcTo(x + innerSize, y + innerSize, x, y + innerSize, r);
-    ctx.arcTo(x, y + innerSize, x, y, r);
-    ctx.arcTo(x, y, x + innerSize, y, r);
-    ctx.closePath();
-    ctx.clip();
-
-    // 4. Draw Image inside the clipped area
-    // Center the image if it's not 1:1
-    const imgRatio = image.width / image.height;
-    let drawW, drawH, drawX, drawY;
-
-    if (imgRatio > 1) {
-      drawW = innerSize;
-      drawH = innerSize / imgRatio;
-      drawX = x;
-      drawY = y + (innerSize - drawH) / 2;
-    } else {
-      drawW = innerSize * imgRatio;
-      drawH = innerSize;
-      drawX = x + (innerSize - drawW) / 2;
-      drawY = y;
-    }
-
-    // Fill background with white before image (optional)
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(x, y, innerSize, innerSize);
-    
-    ctx.drawImage(image, drawX, drawY, drawW, drawH);
-    ctx.restore();
-  };
-
-  useEffect(() => {
-    drawCanvas();
-  }, [image, borderWidth, borderColor, borderRadius, padding]);
-
-  const downloadImage = () => {
-    if (!image) return;
-    const canvas = canvasRef.current;
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    const link = document.createElement('a');
-    link.download = `shopee-product-${Date.now()}.jpg`;
-    link.href = dataUrl;
-    link.click();
-  };
-
-  const reset = () => {
-    setImage(null);
-    setBorderWidth(20);
-    setBorderRadius(0);
-    setBorderColor('#ff4d00');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-orange-100 flex flex-col">
-      {/* Header */}
-      <header className="px-6 pt-8 pb-4 bg-white border-b border-slate-200">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-          <span className="bg-orange-600 text-white p-1.5 rounded-lg">
-            <Layout size={24} />
-          </span>
-          Border Kilat
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">Buat foto produk Shopee lebih menarik.</p>
-      </header>
-
-      {/* Main Preview Area */}
-      <main className="flex-1 flex flex-col items-center justify-center p-6 gap-6 overflow-hidden">
-        {!image ? (
-          <div 
-            onClick={() => fileInputRef.current.click()}
-            className="w-full max-w-sm aspect-square bg-white border-2 border-dashed border-slate-300 rounded-3xl flex flex-col items-center justify-center gap-4 text-slate-400 hover:border-orange-400 hover:text-orange-500 transition-all cursor-pointer shadow-sm"
-          >
-            <div className="bg-slate-100 p-6 rounded-full">
-              <Camera size={48} />
-            </div>
-            <div className="text-center">
-              <p className="font-bold text-slate-700">Pilih Foto Produk</p>
-              <p className="text-sm">Format JPG atau PNG</p>
-            </div>
-          </div>
-        ) : (
-          <div className="relative w-full max-w-sm group">
-            <canvas 
-              ref={canvasRef}
-              className="w-full h-auto aspect-square rounded-2xl shadow-2xl bg-white border border-slate-200"
-            />
-            <button 
-              onClick={reset}
-              className="absolute -top-3 -right-3 bg-white text-red-500 p-2 rounded-full shadow-lg border border-slate-100 hover:scale-110 transition-transform"
-            >
-              <Trash2 size={20} />
-            </button>
-          </div>
-        )}
-
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleImageUpload} 
-          accept="image/*" 
-          className="hidden" 
-        />
-      </main>
-
-      {/* Control Panel (Mobile Friendly Bottom Sheet Style) */}
-      <div className={`bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] px-6 pt-6 pb-10 transition-transform duration-300 ${!image ? 'translate-y-full' : 'translate-y-0'}`}>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Border Kilat Shopee</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Menghilangkan highlight biru saat tap di mobile */
+        * { -webkit-tap-highlight-color: transparent; }
         
-        {/* Tab Navigation */}
-        <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-          <button 
-            onClick={() => setActiveTab('border')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'border' ? 'bg-white shadow-sm text-orange-600' : 'text-slate-500'}`}
-          >
-            <Sliders size={18} /> Garis
-          </button>
-          <button 
-            onClick={() => setActiveTab('color')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${activeTab === 'color' ? 'bg-white shadow-sm text-orange-600' : 'text-slate-500'}`}
-          >
-            <Palette size={18} /> Warna
-          </button>
+        /* Custom styling untuk range slider agar lebih tebal di iOS */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #e2e8f0;
+            height: 8px;
+            border-radius: 4px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #ea580c;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="px-6 pt-8 pb-4 bg-white border-b border-slate-200">
+        <div class="flex items-center gap-3">
+            <div class="bg-orange-600 text-white p-2 rounded-xl shadow-orange-100 shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-tight">Border Kilat</h1>
+                <p class="text-slate-500 text-xs">Edit foto produk Shopee instan</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center p-6 gap-6">
+        <!-- Upload Placeholder (Hidden when image exists) -->
+        <div id="upload-zone" onclick="document.getElementById('file-input').click()" class="w-full max-w-sm aspect-square bg-white border-2 border-dashed border-slate-300 rounded-3xl flex flex-col items-center justify-center gap-4 text-slate-400 hover:border-orange-400 hover:text-orange-500 transition-all cursor-pointer shadow-sm">
+            <div class="bg-slate-100 p-6 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+            </div>
+            <div class="text-center px-4">
+                <p class="font-bold text-slate-700">Tap untuk Pilih Foto</p>
+                <p class="text-xs">Ambil dari galeri atau kamera</p>
+            </div>
         </div>
 
-        {/* Tab Content: Border */}
-        {activeTab === 'border' && (
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Ketebalan Garis</label>
-                <span className="text-sm font-mono font-bold text-orange-600">{borderWidth}px</span>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                value={borderWidth} 
-                onChange={(e) => setBorderWidth(parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
-              />
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Kebulatan Sudut</label>
-                <span className="text-sm font-mono font-bold text-orange-600">{borderRadius}%</span>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="40" 
-                value={borderRadius} 
-                onChange={(e) => setBorderRadius(parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
-              />
-            </div>
-          </div>
-        )}
+        <!-- Preview Canvas Container (Hidden when no image) -->
+        <div id="preview-container" class="hidden relative w-full max-w-sm group">
+            <canvas id="main-canvas" class="w-full h-auto aspect-square rounded-2xl shadow-2xl bg-white border border-slate-200"></canvas>
+            <button onclick="resetApp()" class="absolute -top-3 -right-3 bg-white text-red-500 p-2 rounded-full shadow-lg border border-slate-100 active:scale-90 transition-transform">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+            </button>
+        </div>
 
-        {/* Tab Content: Color */}
-        {activeTab === 'color' && (
-          <div className="space-y-4">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Pilih Warna Border</label>
-            <div className="flex flex-wrap gap-3">
-              {colors.map(color => (
-                <button
-                  key={color}
-                  onClick={() => setBorderColor(color)}
-                  className={`w-12 h-12 rounded-full border-4 transition-all scale-100 active:scale-90 ${borderColor === color ? 'border-slate-300 ring-2 ring-orange-400' : 'border-transparent'}`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-              <div className="relative">
-                <input 
-                  type="color" 
-                  value={borderColor}
-                  onChange={(e) => setBorderColor(e.target.value)}
-                  className="w-12 h-12 rounded-full overflow-hidden border-0 p-0 cursor-pointer"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleImage(this)">
+    </main>
 
-        {/* Action Button */}
-        <button 
-          onClick={downloadImage}
-          disabled={!image}
-          className="w-full mt-8 bg-orange-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-orange-200 active:scale-[0.98] transition-all disabled:bg-slate-300 disabled:shadow-none"
-        >
-          <Download size={20} /> Simpan Foto ke Galeri
+    <!-- Bottom Controls -->
+    <div id="controls" class="bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] px-6 pt-6 pb-10 transition-all transform translate-y-full">
+        
+        <!-- Tabs -->
+        <div class="flex bg-slate-100 p-1 rounded-xl mb-6">
+            <button onclick="switchTab('border')" id="tab-border" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-orange-600">
+                Garis
+            </button>
+            <button onclick="switchTab('color')" id="tab-color" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500">
+                Warna
+            </button>
+        </div>
+
+        <!-- Tab Content: Border -->
+        <div id="content-border" class="space-y-6">
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ketebalan Border</label>
+                    <span id="val-width" class="text-sm font-mono font-bold text-orange-600">20px</span>
+                </div>
+                <input type="range" id="input-width" min="0" max="100" value="20" oninput="updateSettings()" class="w-full">
+            </div>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sudut (Radius)</label>
+                    <span id="val-radius" class="text-sm font-mono font-bold text-orange-600">0%</span>
+                </div>
+                <input type="range" id="input-radius" min="0" max="40" value="0" oninput="updateSettings()" class="w-full">
+            </div>
+        </div>
+
+        <!-- Tab Content: Color -->
+        <div id="content-color" class="hidden space-y-4">
+            <label class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Preset Warna Shopee</label>
+            <div class="flex flex-wrap gap-3" id="color-presets">
+                <!-- Color dots added by JS -->
+            </div>
+            <div class="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
+                <span class="text-xs text-slate-500">Warna Kustom:</span>
+                <input type="color" id="input-color-picker" value="#ff4d00" oninput="updateColorFromPicker(this.value)" class="w-10 h-10 rounded-full border-0 p-0 overflow-hidden cursor-pointer">
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <button onclick="downloadImage()" class="w-full mt-8 bg-orange-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-lg shadow-orange-100 active:scale-[0.98] transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            Simpan ke Galeri
         </button>
-      </div>
-
-      {/* Instructions for iPhone users when no image is uploaded */}
-      {!image && (
-        <div className="px-6 pb-12">
-          <div className="bg-blue-50 p-4 rounded-2xl flex gap-3 border border-blue-100">
-            <div className="bg-blue-100 text-blue-600 p-2 rounded-xl h-fit">
-              <RefreshCcw size={18} />
-            </div>
-            <div className="text-xs text-blue-700 leading-relaxed">
-              <p className="font-bold mb-1">Tips iPhone:</p>
-              Gunakan mode 1:1 pada kamera iPhone Anda untuk hasil terbaik di Shopee. Aplikasi ini otomatis menyesuaikan foto ke ukuran kotak.
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  );
-};
 
-export default App;
+    <!-- Info Box -->
+    <div id="info-box" class="px-6 pb-12 mt-4">
+        <div class="bg-blue-50 p-4 rounded-2xl flex gap-3 border border-blue-100">
+            <div class="bg-blue-100 text-blue-600 p-2 rounded-xl h-fit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></svg>
+            </div>
+            <div class="text-[11px] text-blue-700 leading-relaxed">
+                <p class="font-bold mb-0.5">Tips Shopee:</p>
+                Gunakan warna mencolok seperti Orange (#FF4D00) atau Kuning Neon untuk meningkatkan klik pada produk Anda.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentImage = null;
+        let activeColor = '#ff4d00';
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+
+        const presets = ['#ff4d00', '#ee4d2d', '#000000', '#ffffff', '#f6ff00', '#00ff08', '#0095ff'];
+
+        // Initialize color presets
+        const colorContainer = document.getElementById('color-presets');
+        presets.forEach(color => {
+            const btn = document.createElement('button');
+            btn.className = `w-12 h-12 rounded-full border-4 border-transparent transition-all active:scale-90`;
+            btn.style.backgroundColor = color;
+            if (color === activeColor) btn.classList.add('border-slate-300', 'ring-2', 'ring-orange-400');
+            btn.onclick = () => selectColor(color, btn);
+            colorContainer.appendChild(btn);
+        });
+
+        function handleImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        currentImage = img;
+                        showEditor();
+                        draw();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function showEditor() {
+            document.getElementById('upload-zone').classList.add('hidden');
+            document.getElementById('info-box').classList.add('hidden');
+            document.getElementById('preview-container').classList.remove('hidden');
+            const controls = document.getElementById('controls');
+            controls.classList.remove('translate-y-full');
+        }
+
+        function resetApp() {
+            currentImage = null;
+            document.getElementById('file-input').value = '';
+            document.getElementById('upload-zone').classList.remove('hidden');
+            document.getElementById('info-box').classList.remove('hidden');
+            document.getElementById('preview-container').classList.add('hidden');
+            document.getElementById('controls').classList.add('translate-y-full');
+        }
+
+        function switchTab(tab) {
+            const isBorder = tab === 'border';
+            document.getElementById('content-border').classList.toggle('hidden', !isBorder);
+            document.getElementById('content-color').classList.toggle('hidden', isBorder);
+            
+            document.getElementById('tab-border').className = isBorder 
+                ? 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-orange-600'
+                : 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500';
+            
+            document.getElementById('tab-color').className = !isBorder 
+                ? 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-orange-600'
+                : 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500';
+        }
+
+        function selectColor(color, element) {
+            activeColor = color;
+            document.querySelectorAll('#color-presets button').forEach(b => {
+                b.classList.remove('border-slate-300', 'ring-2', 'ring-orange-400');
+            });
+            element.classList.add('border-slate-300', 'ring-2', 'ring-orange-400');
+            document.getElementById('input-color-picker').value = color;
+            draw();
+        }
+
+        function updateColorFromPicker(color) {
+            activeColor = color;
+            draw();
+        }
+
+        function updateSettings() {
+            const width = document.getElementById('input-width').value;
+            const radius = document.getElementById('input-radius').value;
+            document.getElementById('val-width').innerText = width + 'px';
+            document.getElementById('val-radius').innerText = radius + '%';
+            draw();
+        }
+
+        function draw() {
+            if (!currentImage) return;
+
+            const widthVal = parseInt(document.getElementById('input-width').value);
+            const radiusVal = parseInt(document.getElementById('input-radius').value);
+
+            // Force Square 1:1
+            const size = Math.max(currentImage.width, currentImage.height);
+            canvas.width = size;
+            canvas.height = size;
+
+            // 1. Background Color (The Border)
+            ctx.fillStyle = activeColor;
+            ctx.fillRect(0, 0, size, size);
+
+            // 2. Calculations for Inner Image
+            const innerSize = size - (widthVal * 2);
+            const x = (size - innerSize) / 2;
+            const y = (size - innerSize) / 2;
+
+            // 3. Clipping for Rounded Corners
+            ctx.save();
+            const r = (radiusVal / 100) * (innerSize / 2);
+            
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + innerSize, y, x + innerSize, y + innerSize, r);
+            ctx.arcTo(x + innerSize, y + innerSize, x, y + innerSize, r);
+            ctx.arcTo(x, y + innerSize, x, y, r);
+            ctx.arcTo(x, y, x + innerSize, y, r);
+            ctx.closePath();
+            ctx.clip();
+
+            // 4. Fill White Background (for transparent images)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x, y, innerSize, innerSize);
+
+            // 5. Draw and Center Image
+            const imgRatio = currentImage.width / currentImage.height;
+            let dW, dH, dX, dY;
+
+            if (imgRatio > 1) {
+                dW = innerSize;
+                dH = innerSize / imgRatio;
+                dX = x;
+                dY = y + (innerSize - dH) / 2;
+            } else {
+                dW = innerSize * imgRatio;
+                dH = innerSize;
+                dX = x + (innerSize - dW) / 2;
+                dY = y;
+            }
+
+            ctx.drawImage(currentImage, dX, dY, dW, dH);
+            ctx.restore();
+        }
+
+        function downloadImage() {
+            if (!currentImage) return;
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const link = document.createElement('a');
+            link.download = `shopee_ready_${Date.now()}.jpg`;
+            link.href = dataUrl;
+            link.click();
+            
+            // Note for mobile users
+            setTimeout(() => {
+                const msg = "Jika download tidak otomatis, tahan gambar pada layar dan pilih 'Simpan Gambar'.";
+                console.log(msg);
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
 
