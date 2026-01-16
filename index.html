@@ -1,9 +1,17 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Border Kilat Shopee</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ea580c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Cpath d='m13 2-6 9h5l-1 9 6-9h-5l1-9z' fill='%23ea580c' stroke='none'/%3E%3C/svg%3E">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Border Kilat">
+<meta name="theme-color" content="#ffffff">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ea580c'%3E%3Crect width='24' height='24' rx='5' fill='%23ea580c'/%3E%3Crect width='14' height='14' x='5' y='5' rx='2' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='m13 4-6 9h5l-1 9 6-9h-5l1-9z' fill='white'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Menghilangkan highlight biru saat tap di mobile */
@@ -130,166 +138,204 @@
     </div>
 
     <script>
-        let currentImage = null;
-        let activeColor = '#ff4d00';
-        const canvas = document.getElementById('main-canvas');
-        const ctx = canvas.getContext('2d');
+    let currentImage = null;
+    let activeColor = '#ff4d00';
+    const canvas = document.getElementById('main-canvas');
+    const ctx = canvas.getContext('2d');
 
-        const presets = ['#ff4d00', '#ee4d2d', '#000000', '#ffffff', '#f6ff00', '#00ff08', '#0095ff'];
+    const presets = ['#ff4d00', '#ee4d2d', '#000000', '#ffffff', '#f6ff00', '#00ff08', '#0095ff'];
 
-        // Initialize color presets
+    // Inisialisasi awal saat halaman dimuat
+    window.onload = () => {
+        initColorPresets();
+        loadSettings(); // Memuat pengaturan yang tersimpan
+    };
+
+    function initColorPresets() {
         const colorContainer = document.getElementById('color-presets');
+        colorContainer.innerHTML = ''; // Clear container
         presets.forEach(color => {
             const btn = document.createElement('button');
-            btn.className = `w-12 h-12 rounded-full border-4 border-transparent transition-all active:scale-90`;
+            btn.className = `preset-btn w-12 h-12 rounded-full border-4 border-transparent transition-all active:scale-90`;
             btn.style.backgroundColor = color;
-            if (color === activeColor) btn.classList.add('border-slate-300', 'ring-2', 'ring-orange-400');
+            btn.dataset.color = color;
             btn.onclick = () => selectColor(color, btn);
             colorContainer.appendChild(btn);
         });
+    }
 
-        function handleImage(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.onload = function() {
-                        currentImage = img;
-                        showEditor();
-                        draw();
-                    };
-                    img.src = e.target.result;
+    // FUNGSI BARU: Simpan ke LocalStorage
+    function saveSettings() {
+        const settings = {
+            width: document.getElementById('input-width').value,
+            radius: document.getElementById('input-radius').value,
+            color: activeColor
+        };
+        localStorage.setItem('borderKilatSettings', JSON.stringify(settings));
+    }
+
+    // FUNGSI BARU: Muat dari LocalStorage
+    function loadSettings() {
+        const saved = localStorage.getItem('borderKilatSettings');
+        if (saved) {
+            const settings = JSON.parse(saved);
+            
+            // Set Slider Ketebalan
+            document.getElementById('input-width').value = settings.width;
+            document.getElementById('val-width').innerText = settings.width + 'px';
+            
+            // Set Slider Radius
+            document.getElementById('input-radius').value = settings.radius;
+            document.getElementById('val-radius').innerText = settings.radius + '%';
+            
+            // Set Warna
+            activeColor = settings.color;
+            document.getElementById('input-color-picker').value = settings.color;
+            
+            // Highlight preset yang sesuai jika ada
+            updateColorUI(settings.color);
+        }
+    }
+
+    function handleImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    currentImage = img;
+                    showEditor();
+                    draw();
                 };
-                reader.readAsDataURL(input.files[0]);
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function showEditor() {
+        document.getElementById('upload-zone').classList.add('hidden');
+        document.getElementById('info-box').classList.add('hidden');
+        document.getElementById('preview-container').classList.remove('hidden');
+        const controls = document.getElementById('controls');
+        controls.classList.remove('translate-y-full');
+    }
+
+    function resetApp() {
+        currentImage = null;
+        document.getElementById('file-input').value = '';
+        document.getElementById('upload-zone').classList.remove('hidden');
+        document.getElementById('info-box').classList.remove('hidden');
+        document.getElementById('preview-container').classList.add('hidden');
+        document.getElementById('controls').classList.add('translate-y-full');
+    }
+
+    function switchTab(tab) {
+        const isBorder = tab === 'border';
+        document.getElementById('content-border').classList.toggle('hidden', !isBorder);
+        document.getElementById('content-color').classList.toggle('hidden', isBorder);
+        
+        document.getElementById('tab-border').className = isBorder 
+            ? 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-orange-600'
+            : 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500';
+        
+        document.getElementById('tab-color').className = !isBorder 
+            ? 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-orange-600'
+            : 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500';
+    }
+
+    function updateColorUI(color) {
+        document.querySelectorAll('#color-presets button').forEach(b => {
+            b.classList.remove('border-slate-300', 'ring-2', 'ring-orange-400');
+            if (b.dataset.color === color) {
+                b.classList.add('border-slate-300', 'ring-2', 'ring-orange-400');
             }
+        });
+    }
+
+    function selectColor(color, element) {
+        activeColor = color;
+        updateColorUI(color);
+        document.getElementById('input-color-picker').value = color;
+        saveSettings(); // Simpan perubahan warna
+        draw();
+    }
+
+    function updateColorFromPicker(color) {
+        activeColor = color;
+        updateColorUI(color);
+        saveSettings(); // Simpan perubahan warna
+        draw();
+    }
+
+    function updateSettings() {
+        const width = document.getElementById('input-width').value;
+        const radius = document.getElementById('input-radius').value;
+        document.getElementById('val-width').innerText = width + 'px';
+        document.getElementById('val-radius').innerText = radius + '%';
+        saveSettings(); // Simpan perubahan slider
+        draw();
+    }
+
+    function draw() {
+        if (!currentImage) return;
+
+        const widthVal = parseInt(document.getElementById('input-width').value);
+        const radiusVal = parseInt(document.getElementById('input-radius').value);
+
+        const size = Math.max(currentImage.width, currentImage.height);
+        canvas.width = size;
+        canvas.height = size;
+
+        ctx.fillStyle = activeColor;
+        ctx.fillRect(0, 0, size, size);
+
+        const innerSize = size - (widthVal * 2);
+        const x = (size - innerSize) / 2;
+        const y = (size - innerSize) / 2;
+
+        ctx.save();
+        const r = (radiusVal / 100) * (innerSize / 2);
+        
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + innerSize, y, x + innerSize, y + innerSize, r);
+        ctx.arcTo(x + innerSize, y + innerSize, x, y + innerSize, r);
+        ctx.arcTo(x, y + innerSize, x, y, r);
+        ctx.arcTo(x, y, x + innerSize, y, r);
+        ctx.closePath();
+        ctx.clip();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x, y, innerSize, innerSize);
+
+        const imgRatio = currentImage.width / currentImage.height;
+        let dW, dH, dX, dY;
+
+        if (imgRatio > 1) {
+            dW = innerSize;
+            dH = innerSize / imgRatio;
+            dX = x;
+            dY = y + (innerSize - dH) / 2;
+        } else {
+            dW = innerSize * imgRatio;
+            dH = innerSize;
+            dX = x + (innerSize - dW) / 2;
+            dY = y;
         }
 
-        function showEditor() {
-            document.getElementById('upload-zone').classList.add('hidden');
-            document.getElementById('info-box').classList.add('hidden');
-            document.getElementById('preview-container').classList.remove('hidden');
-            const controls = document.getElementById('controls');
-            controls.classList.remove('translate-y-full');
-        }
+        ctx.drawImage(currentImage, dX, dY, dW, dH);
+        ctx.restore();
+    }
 
-        function resetApp() {
-            currentImage = null;
-            document.getElementById('file-input').value = '';
-            document.getElementById('upload-zone').classList.remove('hidden');
-            document.getElementById('info-box').classList.remove('hidden');
-            document.getElementById('preview-container').classList.add('hidden');
-            document.getElementById('controls').classList.add('translate-y-full');
-        }
-
-        function switchTab(tab) {
-            const isBorder = tab === 'border';
-            document.getElementById('content-border').classList.toggle('hidden', !isBorder);
-            document.getElementById('content-color').classList.toggle('hidden', isBorder);
-            
-            document.getElementById('tab-border').className = isBorder 
-                ? 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-orange-600'
-                : 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500';
-            
-            document.getElementById('tab-color').className = !isBorder 
-                ? 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all bg-white shadow-sm text-orange-600'
-                : 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all text-slate-500';
-        }
-
-        function selectColor(color, element) {
-            activeColor = color;
-            document.querySelectorAll('#color-presets button').forEach(b => {
-                b.classList.remove('border-slate-300', 'ring-2', 'ring-orange-400');
-            });
-            element.classList.add('border-slate-300', 'ring-2', 'ring-orange-400');
-            document.getElementById('input-color-picker').value = color;
-            draw();
-        }
-
-        function updateColorFromPicker(color) {
-            activeColor = color;
-            draw();
-        }
-
-        function updateSettings() {
-            const width = document.getElementById('input-width').value;
-            const radius = document.getElementById('input-radius').value;
-            document.getElementById('val-width').innerText = width + 'px';
-            document.getElementById('val-radius').innerText = radius + '%';
-            draw();
-        }
-
-        function draw() {
-            if (!currentImage) return;
-
-            const widthVal = parseInt(document.getElementById('input-width').value);
-            const radiusVal = parseInt(document.getElementById('input-radius').value);
-
-            // Force Square 1:1
-            const size = Math.max(currentImage.width, currentImage.height);
-            canvas.width = size;
-            canvas.height = size;
-
-            // 1. Background Color (The Border)
-            ctx.fillStyle = activeColor;
-            ctx.fillRect(0, 0, size, size);
-
-            // 2. Calculations for Inner Image
-            const innerSize = size - (widthVal * 2);
-            const x = (size - innerSize) / 2;
-            const y = (size - innerSize) / 2;
-
-            // 3. Clipping for Rounded Corners
-            ctx.save();
-            const r = (radiusVal / 100) * (innerSize / 2);
-            
-            ctx.beginPath();
-            ctx.moveTo(x + r, y);
-            ctx.arcTo(x + innerSize, y, x + innerSize, y + innerSize, r);
-            ctx.arcTo(x + innerSize, y + innerSize, x, y + innerSize, r);
-            ctx.arcTo(x, y + innerSize, x, y, r);
-            ctx.arcTo(x, y, x + innerSize, y, r);
-            ctx.closePath();
-            ctx.clip();
-
-            // 4. Fill White Background (for transparent images)
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(x, y, innerSize, innerSize);
-
-            // 5. Draw and Center Image
-            const imgRatio = currentImage.width / currentImage.height;
-            let dW, dH, dX, dY;
-
-            if (imgRatio > 1) {
-                dW = innerSize;
-                dH = innerSize / imgRatio;
-                dX = x;
-                dY = y + (innerSize - dH) / 2;
-            } else {
-                dW = innerSize * imgRatio;
-                dH = innerSize;
-                dX = x + (innerSize - dW) / 2;
-                dY = y;
-            }
-
-            ctx.drawImage(currentImage, dX, dY, dW, dH);
-            ctx.restore();
-        }
-
-        function downloadImage() {
-            if (!currentImage) return;
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            const link = document.createElement('a');
-            link.download = `shopee_ready_${Date.now()}.jpg`;
-            link.href = dataUrl;
-            link.click();
-            
-            // Note for mobile users
-            setTimeout(() => {
-                const msg = "Jika download tidak otomatis, tahan gambar pada layar dan pilih 'Simpan Gambar'.";
-                console.log(msg);
-            }, 1000);
-        }
-    </script>
+    function downloadImage() {
+        if (!currentImage) return;
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const link = document.createElement('a');
+        link.download = `shopee_ready_${Date.now()}.jpg`;
+        link.href = dataUrl;
+        link.click();
+    }
+</script>
 </body>
 </html>
-
